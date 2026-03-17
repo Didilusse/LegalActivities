@@ -21,6 +21,7 @@ enum RaceState {
 
 class RaceViewModel: ObservableObject {
     let route: SavedRoute
+    var units: UnitPreference
     @ObservedObject var locationManager: LocationManager
     
     @Published var raceState: RaceState // Use your existing enum: .notStarted, .inProgress, .completed
@@ -37,7 +38,21 @@ class RaceViewModel: ObservableObject {
     @Published var currentSpeed: Double = 0 // m/s, from locationManager
     @Published var distanceRaced: Double = 0 // meters, from locationManager
     @Published var remainingDistance: Double = 0 // meters
-    
+
+    // MARK: - Direction / Turn Instructions
+    @Published var currentInstruction: TurnInstruction? = nil
+    @Published var nextInstruction: TurnInstruction? = nil
+    /// Live distance in metres from the user's current position to the next waypoint.
+    @Published var distanceToNextWaypoint: Double? = nil
+    /// Pre-computed instruction list for the whole route
+    private(set) var allInstructions: [TurnInstruction] = []
+
+    // MARK: - Road-snapped geometry
+    /// Road-following polyline segments (one per checkpoint gap), used by the map overlay.
+    @Published var roadPolylines: [MKPolyline] = []
+    /// Dense road coords rebuilt from the fetched polylines, used for turn instructions.
+    private(set) var roadCoords: [CLLocationCoordinate2D] = []
+
     private var timer: Timer?
     private var raceStartTime: Date?
     private var lastLapTimeMarker: TimeInterval = 0 // To calculate segment duration
@@ -50,9 +65,10 @@ class RaceViewModel: ObservableObject {
     
     private var totalPlannedRouteDistance: Double = 0 // Pre-calculated distance of the saved route
     
-    init(route: SavedRoute, locationManager: LocationManager) {
+    init(route: SavedRoute, locationManager: LocationManager, units: UnitPreference = .metric) {
         self.route = route
         self.locationManager = locationManager
+        self.units = units
         self.raceState = .notStarted // Initialize from your enum
         
         if let startCoord = route.startCoordinate {
@@ -96,6 +112,81 @@ class RaceViewModel: ObservableObject {
             .store(in: &cancellables)
         
         setupInitialGeofences()
+
+        // Start with straight-line instructions as a fallback while road geometry loads
+        self.allInstructions = TurnInstruction.buildInstructions(for: route.clCoordinates, units: units)
+        self.currentInstruction = allInstructions.first
+        self.nextInstruction = allInstructions.count > 1 ? allInstructions[1] : nil
+
+        // Update instructions as the user moves along the route
+        locationManager.$currentLocation
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] location in
+                guard let self = self, self.raceState == .inProgress, let loc = location else { return }
+                self.updateCurrentInstruction(userLocation: loc.coordinate)
+            }
+            .store(in: &cancellables)
+
+        // Fetch road-snapped geometry asynchronously; rebuilds instructions + map overlays when done
+        Task { await fetchRoadGeometry() }
+    }
+
+    // MARK: - Road geometry fetch
+
+    @MainActor
+    func fetchRoadGeometry() async {
+        let pins = route.clCoordinates
+        guard pins.count >= 2 else { return }
+
+        var polylines: [MKPolyline] = []
+        var dense: [CLLocationCoordinate2D] = []
+
+        for i in 0..<(pins.count - 1) {
+            let request = MKDirections.Request()
+            request.source      = MKMapItem(placemark: MKPlacemark(coordinate: pins[i]))
+            request.destination = MKMapItem(placemark: MKPlacemark(coordinate: pins[i + 1]))
+            request.transportType = .automobile
+
+            do {
+                let response = try await MKDirections(request: request).calculate()
+                if let polyline = response.routes.first?.polyline {
+                    polylines.append(polyline)
+                    // Append dense road coords (skip first point after segment 0 to avoid duplicates)
+                    let coords = polyline.coordinates
+                    if dense.isEmpty {
+                        dense.append(contentsOf: coords)
+                    } else {
+                        dense.append(contentsOf: coords.dropFirst())
+                    }
+                } else {
+                    // Fallback: straight line
+                    let fallback = MKPolyline(coordinates: [pins[i], pins[i + 1]], count: 2)
+                    polylines.append(fallback)
+                    if dense.isEmpty { dense.append(pins[i]) }
+                    dense.append(pins[i + 1])
+                }
+            } catch {
+                let fallback = MKPolyline(coordinates: [pins[i], pins[i + 1]], count: 2)
+                polylines.append(fallback)
+                if dense.isEmpty { dense.append(pins[i]) }
+                dense.append(pins[i + 1])
+            }
+
+            // Throttle: 300 ms between requests
+            if i < pins.count - 2 {
+                try? await Task.sleep(for: .milliseconds(300))
+            }
+        }
+
+        roadPolylines = polylines
+        roadCoords    = dense
+
+        // Rebuild instructions from dense road geometry
+        let newInstructions = TurnInstruction.buildInstructions(for: dense, units: units)
+        if !newInstructions.isEmpty {
+            allInstructions    = newInstructions
+            resetInstructions()
+        }
     }
     
     deinit {
@@ -122,9 +213,9 @@ class RaceViewModel: ObservableObject {
     }
     
     var formattedTime: String { formatTimeDisplay(elapsedTime) }
-    var formattedDistanceRaced: String { String(format: "%.2f km", distanceRaced / 1000) }
-    var formattedCurrentSpeed: String { String(format: "%.1f km/h", (currentSpeed * 3.6)) }
-    var formattedRemainingDistance: String { String(format: "%.2f km", remainingDistance / 1000) }
+    var formattedDistanceRaced: String { units.formatDistance(distanceRaced) }
+    var formattedCurrentSpeed: String { units.formatSpeed(currentSpeed) }
+    var formattedRemainingDistance: String { units.formatDistance(remainingDistance) }
     
     func formatTimeDisplay(_ seconds: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
@@ -149,6 +240,7 @@ class RaceViewModel: ObservableObject {
         elapsedTime = 0
         lastLapTimeMarker = 0
         lapSegmentDurations.removeAll()
+        resetInstructions()
         
         // Start is coord[0]. First target is coord[1].
         nextCheckpointIndex = 1
@@ -313,5 +405,53 @@ class RaceViewModel: ObservableObject {
         // Don't stop locationManager's general tracking here unless it was only for this race
         // locationManager.stopTracking()
         locationManager.stopAllGeofences() // Specifically stop race geofences
+    }
+
+    // MARK: - Turn Instruction Tracking
+
+    /// Index of the instruction currently being displayed.
+    private var currentInstructionIndex: Int = 0
+
+    /// Advances currentInstruction / nextInstruction based on proximity to the *next* waypoint.
+    /// Only ever moves forward — never resets backward when the user moves away from a waypoint.
+    private func updateCurrentInstruction(userLocation: CLLocationCoordinate2D) {
+        guard !allInstructions.isEmpty else { return }
+
+        let userLoc = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+
+        // Try to advance past any upcoming waypoints the user is already within range of.
+        // We only look forward from the current index so we never go backwards.
+        while currentInstructionIndex + 1 < allInstructions.count {
+            let nextInstr = allInstructions[currentInstructionIndex + 1]
+            let waypointLoc = CLLocation(latitude: nextInstr.waypointCoordinate.latitude,
+                                         longitude: nextInstr.waypointCoordinate.longitude)
+            if userLoc.distance(from: waypointLoc) < 25 {
+                currentInstructionIndex += 1
+            } else {
+                break
+            }
+        }
+
+        currentInstruction = allInstructions[currentInstructionIndex]
+        nextInstruction = currentInstructionIndex + 1 < allInstructions.count
+            ? allInstructions[currentInstructionIndex + 1]
+            : nil
+
+        // The current instruction tells you what to do AT its waypoint.
+        // The distance we want to show is how far until you reach that waypoint,
+        // i.e. the waypoint of the *next* instruction (the one after currentInstruction).
+        // Exception: if we're already on the last instruction, show distance to its own waypoint.
+        let targetIndex = min(currentInstructionIndex + 1, allInstructions.count - 1)
+        let target = allInstructions[targetIndex].waypointCoordinate
+        let targetLoc = CLLocation(latitude: target.latitude, longitude: target.longitude)
+        distanceToNextWaypoint = userLoc.distance(from: targetLoc)
+    }
+
+    /// Resets instructions to the beginning when a race starts.
+    func resetInstructions() {
+        currentInstructionIndex = 0
+        currentInstruction = allInstructions.first
+        nextInstruction = allInstructions.count > 1 ? allInstructions[1] : nil
+        distanceToNextWaypoint = nil
     }
 }

@@ -60,6 +60,7 @@ struct UserProfile: Codable {
     var isDarkMode: Bool
     var soundEnabled: Bool
     var hapticEnabled: Bool
+    var rallyDirectionsEnabled: Bool
 
     init(
         id: UUID = UUID(),
@@ -73,7 +74,8 @@ struct UserProfile: Codable {
         unitPreference: UnitPreference = .imperial,
         isDarkMode: Bool = false,
         soundEnabled: Bool = true,
-        hapticEnabled: Bool = true
+        hapticEnabled: Bool = true,
+        rallyDirectionsEnabled: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -87,5 +89,6 @@ struct UserProfile: Codable {
         self.isDarkMode = isDarkMode
         self.soundEnabled = soundEnabled
         self.hapticEnabled = hapticEnabled
+        self.rallyDirectionsEnabled = rallyDirectionsEnabled
     }
 }

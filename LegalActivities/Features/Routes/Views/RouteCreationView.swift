@@ -547,9 +547,37 @@ struct MapViewBridge: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: MKMapView, context: Context) {
-        let oldAnnotationsOnMap = uiView.annotations.filter { !($0 is MKUserLocation) }
-        uiView.removeAnnotations(oldAnnotationsOnMap)
-        uiView.addAnnotations(annotations)
+        // Diff annotations to avoid removing pins that are actively being dragged
+        let existing = uiView.annotations.compactMap { $0 as? LocationPin }
+        let existingIDs = Set(existing.map { $0.id })
+        let newIDs = Set(annotations.map { $0.id })
+
+        let toRemove = existing.filter { !newIDs.contains($0.id) }
+        let toAdd = annotations.filter { !existingIDs.contains($0.id) }
+
+        uiView.removeAnnotations(toRemove)
+        uiView.addAnnotations(toAdd)
+
+        // Refresh annotation views so colours/glyph text update after selection changes
+        for pin in annotations {
+            if let view = uiView.view(for: pin) as? MKMarkerAnnotationView {
+                if vm.selectedAnnotation?.id == pin.id {
+                    view.markerTintColor = .systemYellow
+                    view.transform = CGAffineTransform(scaleX: 1.25, y: 1.25)
+                    view.zPriority = .max
+                } else {
+                    view.markerTintColor = UIColor(pin.type.markerColor)
+                    view.transform = .identity
+                    view.zPriority = .defaultUnselected
+                }
+                // Keep checkpoint glyph numbers in sync
+                if pin.type == .checkpoint, let number = vm.getCheckpointNumber(for: pin) {
+                    view.glyphText = "\(number)"
+                    view.glyphImage = nil
+                }
+            }
+        }
+
         uiView.removeOverlays(uiView.overlays)
         uiView.addOverlays(routeSegments)
     }
@@ -614,38 +642,45 @@ struct MapViewBridge: UIViewRepresentable {
             if annotation is MKUserLocation { return nil }
             guard let locationPin = annotation as? LocationPin else { return nil }
 
-            let reuseIdentifier = "pin_\(locationPin.type.hashValue)_\(locationPin.id)"
-            var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: reuseIdentifier)
+            // Use a stable, type-based reuse identifier so dequeuing and drag state work correctly
+            let reuseIdentifier: String
+            switch locationPin.type {
+            case .start:      reuseIdentifier = "pin_start"
+            case .checkpoint: reuseIdentifier = "pin_checkpoint"
+            case .end:        reuseIdentifier = "pin_end"
+            }
 
-            if annotationView == nil {
-                annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: reuseIdentifier)
+            let markerView: MKMarkerAnnotationView
+            if let dequeued = mapView.dequeueReusableAnnotationView(withIdentifier: reuseIdentifier) as? MKMarkerAnnotationView {
+                markerView = dequeued
+                markerView.annotation = annotation
             } else {
-                annotationView?.annotation = annotation
+                markerView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: reuseIdentifier)
             }
 
-            if let markerView = annotationView as? MKMarkerAnnotationView {
-                markerView.isDraggable = true
-                markerView.canShowCallout = (locationPin.type == .checkpoint)
+            // Long-press on the pin initiates dragging
+            markerView.isDraggable = true
+            markerView.canShowCallout = false
+
+            if locationPin.type == .checkpoint, let number = vm.getCheckpointNumber(for: locationPin) {
+                markerView.glyphText = "\(number)"
+                markerView.glyphImage = nil
+            } else {
+                markerView.glyphText = nil
                 markerView.glyphImage = UIImage(systemName: locationPin.type.icon)
-
-                if locationPin.type == .checkpoint, let number = vm.getCheckpointNumber(for: locationPin) {
-                    markerView.glyphText = "\(number)"
-                    markerView.glyphImage = nil
-                } else {
-                    markerView.glyphText = nil
-                }
-
-                if vm.selectedAnnotation?.id == locationPin.id {
-                    markerView.markerTintColor = UIColor.systemYellow
-                    markerView.transform = CGAffineTransform(scaleX: 1.25, y: 1.25)
-                    markerView.zPriority = .max
-                } else {
-                    markerView.markerTintColor = UIColor(locationPin.type.markerColor)
-                    markerView.transform = .identity
-                    markerView.zPriority = .defaultUnselected
-                }
             }
-            return annotationView
+
+            if vm.selectedAnnotation?.id == locationPin.id {
+                markerView.markerTintColor = UIColor.systemYellow
+                markerView.transform = CGAffineTransform(scaleX: 1.25, y: 1.25)
+                markerView.zPriority = .max
+            } else {
+                markerView.markerTintColor = UIColor(locationPin.type.markerColor)
+                markerView.transform = .identity
+                markerView.zPriority = .defaultUnselected
+            }
+
+            return markerView
         }
 
         func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, didChange newState: MKAnnotationView.DragState, fromOldState oldState: MKAnnotationView.DragState) {

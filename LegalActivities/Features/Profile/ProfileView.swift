@@ -247,21 +247,36 @@ struct EditProfileView: View {
                 }
 
                 Section("Avatar") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 16) {
-                        ForEach(availableAvatars, id: \.self) { avatar in
-                            Button {
-                                selectedAvatar = avatar
-                            } label: {
-                                Image(systemName: avatar)
-                                    .font(.title)
-                                    .foregroundStyle(selectedAvatar == avatar ? .white : .blue)
-                                    .frame(width: 52, height: 52)
-                                    .background(selectedAvatar == avatar ? Color.blue : Color.blue.opacity(0.1))
-                                    .clipShape(Circle())
+                    // Use explicit rows to avoid the LazyVGrid+Form tap-hijacking bug
+                    let columns = 5
+                    let rows = (availableAvatars.count + columns - 1) / columns
+                    VStack(spacing: 14) {
+                        ForEach(0..<rows, id: \.self) { row in
+                            HStack(spacing: 14) {
+                                ForEach(0..<columns, id: \.self) { col in
+                                    let index = row * columns + col
+                                    if index < availableAvatars.count {
+                                        let avatar = availableAvatars[index]
+                                        Button {
+                                            selectedAvatar = avatar
+                                        } label: {
+                                            Image(systemName: avatar)
+                                                .font(.title)
+                                                .foregroundStyle(selectedAvatar == avatar ? .white : .blue)
+                                                .frame(width: 52, height: 52)
+                                                .background(selectedAvatar == avatar ? Color.blue : Color.blue.opacity(0.1))
+                                                .clipShape(Circle())
+                                        }
+                                        .buttonStyle(.plain)
+                                    } else {
+                                        Spacer().frame(width: 52, height: 52)
+                                    }
+                                }
                             }
                         }
                     }
                     .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .navigationTitle("Edit Profile")

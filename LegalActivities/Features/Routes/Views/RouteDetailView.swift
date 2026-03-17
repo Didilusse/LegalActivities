@@ -11,6 +11,7 @@ import MapKit
 
 struct RouteDetailView: View {
     let route: SavedRoute
+    @EnvironmentObject var appState: AppState
     @StateObject var locationManager = LocationManager() // Or inject if shared
 
     // State for the map display
@@ -106,7 +107,7 @@ struct RouteDetailView: View {
     }
 
     private var actionButtonSection: some View {
-        NavigationLink(destination: RaceInProgressView(route: route, locationManager: locationManager)) {
+        NavigationLink(destination: RaceInProgressView(route: route, locationManager: locationManager, units: appState.userProfile.unitPreference)) {
             Text("Race This Route")
                 .font(.headline)
                 .foregroundColor(.white) // Ensure text is visible on button

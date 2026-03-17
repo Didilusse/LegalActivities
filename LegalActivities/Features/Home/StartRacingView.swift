@@ -1,9 +1,9 @@
-
 //
 //  StartRacingView.swift
 //  LegalActivities
 //
 //  Full-screen route selection pushed from HomeView's NavigationStack.
+//  Tapping a route opens RoutePreviewSheet; the sheet's Race button pushes RaceInProgressView.
 //
 
 import SwiftUI
@@ -18,49 +18,85 @@ struct StartRacingView: View {
     @State private var searchText = ""
     @State private var selectedDifficulty: Difficulty? = nil
 
+    // Sheet state
+    @State private var previewRoute: SavedRoute? = nil
+    @State private var showPreview = false
+    // Set when user taps Race in the sheet; navigation fires in onDismiss to avoid race condition
+    @State private var pendingRaceRoute: SavedRoute? = nil
+
+    // Navigation to race - using NavigationPath
+    @State private var navigationPath = NavigationPath()
+
     var body: some View {
-        VStack(spacing: 0) {
-            difficultyFilterBar
+        NavigationStack(path: $navigationPath) {
+            VStack(spacing: 0) {
+                difficultyFilterBar
 
-            if appState.savedRoutes.isEmpty {
-                emptyView
-            } else {
-                List {
-                    if !appState.recentRoutes.isEmpty {
-                        Section("Recent Routes") {
-                            ForEach(appState.recentRoutes) { route in
-                                routeRow(route)
+                if appState.savedRoutes.isEmpty {
+                    emptyView
+                } else {
+                    List {
+                        if !appState.recentRoutes.isEmpty {
+                            Section("Recent Routes") {
+                                ForEach(appState.recentRoutes) { route in
+                                    routeRow(route)
+                                }
+                            }
+                        }
+
+                        Section("All Routes") {
+                            if filteredRoutes.isEmpty {
+                                Text("No routes match your filter.")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(filteredRoutes) { route in
+                                    routeRow(route)
+                                }
                             }
                         }
                     }
-
-                    Section("All Routes") {
-                        if filteredRoutes.isEmpty {
-                            Text("No routes match your filter.")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            ForEach(filteredRoutes) { route in
-                                routeRow(route)
-                            }
-                        }
-                    }
+                    .listStyle(.insetGrouped)
                 }
-                .listStyle(.insetGrouped)
+            }
+            .navigationTitle("Select a Route")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar(.hidden, for: .tabBar)
+            .searchable(text: $searchText, prompt: "Search routes")
+            .onAppear { appState.loadRoutes() }
+            .navigationDestination(for: SavedRoute.self) { route in
+                RaceInProgressView(route: route, locationManager: locationManager, units: appState.userProfile.unitPreference)
+                    .environmentObject(appState)
+                    .onDisappear {
+                        appState.loadRoutes()
+                    }
+            }
+            // Preview sheet
+            .sheet(isPresented: $showPreview, onDismiss: {
+                if let route = pendingRaceRoute {
+                    pendingRaceRoute = nil
+                    navigationPath.append(route)
+                }
+            }) {
+                if let route = previewRoute {
+                    RoutePreviewSheet(
+                        route: route,
+                        locationManager: locationManager,
+                        onStartRace: {
+                            pendingRaceRoute = route
+                            showPreview = false
+                        }
+                    )
+                    .environmentObject(appState)
+                }
             }
         }
-        .navigationTitle("Select a Route")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar(.hidden, for: .tabBar)
-        .searchable(text: $searchText, prompt: "Search routes")
-        .onAppear { appState.loadRoutes() }
     }
 
-    // MARK: - Route row (NavigationLink so the push stays inside HomeView's NavigationStack)
-    @ViewBuilder
+    // MARK: - Route row — opens preview sheet
     private func routeRow(_ route: SavedRoute) -> some View {
-        NavigationLink {
-            RaceInProgressView(route: route, locationManager: locationManager)
-                .onDisappear { appState.loadRoutes() }
+        Button {
+            previewRoute = route
+            showPreview = true
         } label: {
             HStack(spacing: 14) {
                 // Colour dot
@@ -76,12 +112,17 @@ struct StartRacingView: View {
                     HStack(spacing: 8) {
                         DifficultyBadge(difficulty: route.difficulty)
 
-                        if let pb = appState.personalBest(for: route) {
-                            Label(formatShortDuration(pb), systemImage: "trophy.fill")
+                        // Distance
+                        let dist = route.totalDistance
+                        if dist > 0 {
+                            Label(appState.userProfile.unitPreference.formatDistance(dist),
+                                  systemImage: "arrow.left.and.right")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                        } else {
-                            Text("No races yet")
+                        }
+
+                        if let pb = appState.personalBest(for: route) {
+                            Label(formatShortDuration(pb), systemImage: "trophy.fill")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -93,8 +134,15 @@ struct StartRacingView: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle()) // Makes the entire row tappable
         }
     }
 

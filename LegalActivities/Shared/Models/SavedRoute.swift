@@ -43,6 +43,24 @@ struct SavedRoute: Identifiable, Codable, Hashable {
     var startCoordinate: CLLocationCoordinate2D? { clCoordinates.first }
     var endCoordinate: CLLocationCoordinate2D? { clCoordinates.last }
 
+    /// Straight-line sum of all coordinate-to-coordinate distances in metres.
+    var totalDistance: Double {
+        let coords = clCoordinates
+        guard coords.count >= 2 else { return 0 }
+        var total = 0.0
+        for i in 0..<coords.count - 1 {
+            let a = CLLocation(latitude: coords[i].latitude, longitude: coords[i].longitude)
+            let b = CLLocation(latitude: coords[i+1].latitude, longitude: coords[i+1].longitude)
+            total += a.distance(from: b)
+        }
+        return total
+    }
+
+    /// Estimated duration in seconds, assuming ~40 km/h average speed.
+    var estimatedDuration: TimeInterval {
+        totalDistance / (40_000 / 3600)
+    }
+
     // Hashable conformance based on id only
     static func == (lhs: SavedRoute, rhs: SavedRoute) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

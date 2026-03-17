@@ -10,33 +10,11 @@
 		C5CF4E642DD11FD200209D90 /* LegalActivities.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LegalActivities.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		C5648D112DD2B710004B1C61 /* Exceptions for "LegalActivities" folder in "LegalActivities" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Features/Components/MKMultiPoint.swift,
-			);
-			target = C5CF4E632DD11FD200209D90 /* LegalActivities */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		C5648D122DD2B710004B1C61 /* Exceptions for "LegalActivities" folder in "Copy Bundle Resources" phase from "LegalActivities" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = C5CF4E622DD11FD200209D90 /* Resources */;
-			membershipExceptions = (
-				Features/Components/MKMultiPoint.swift,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C5CF4E662DD11FD200209D90 /* LegalActivities */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C5648D112DD2B710004B1C61 /* Exceptions for "LegalActivities" folder in "LegalActivities" target */,
-				C5648D122DD2B710004B1C61 /* Exceptions for "LegalActivities" folder in "Copy Bundle Resources" phase from "LegalActivities" target */,
-			);
 			path = LegalActivities;
 			sourceTree = "<group>";
 		};

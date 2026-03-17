@@ -18,6 +18,7 @@ class RouteCreationViewModel: ObservableObject {
     @Published var routeSegments: [MKPolyline] = []
     @Published var selectedAnnotation: LocationPin? = nil
     private var directionsTasks: [MKDirections] = []
+    private var debounceTask: Task<Void, Never>? = nil
     
     // MARK: - Computed Properties
     var canSaveRoute: Bool {
@@ -160,42 +161,66 @@ class RouteCreationViewModel: ObservableObject {
 
     
     private func calculateRouteSegments() {
+        // Debounce: cancel any pending calculation and wait 0.4s for the user to stop making changes
+        debounceTask?.cancel()
+        debounceTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(400))
+            } catch {
+                return // Cancelled — a newer call came in
+            }
+            await self.runRouteCalculation()
+        }
+    }
+
+    @MainActor
+    private func runRouteCalculation() async {
         directionsTasks.forEach { $0.cancel() }
         directionsTasks.removeAll()
-        routeSegments = []
-        guard annotations.count >= 2 else {
-            DispatchQueue.main.async { self.routeSegments = [] }
+
+        let pins = annotations
+        guard pins.count >= 2 else {
+            routeSegments = []
             return
         }
-        
-        var calculatedSegments: [MKPolyline?] = Array(repeating: nil, count: annotations.count - 1)
-        let dispatchGroup = DispatchGroup()
-        
-        for i in 0..<(annotations.count - 1) {
-            dispatchGroup.enter()
-            let sourcePin = annotations[i]
-            let destinationPin = annotations[i+1]
+
+        var segments: [MKPolyline] = []
+
+        // Process segments one at a time to stay well under the 50 req/60s limit.
+        // A ~300ms gap between requests keeps throughput at ~3/s (180/min), safely under the cap.
+        for i in 0..<(pins.count - 1) {
+            // Check for cancellation before each request (user may have added another pin)
+            guard !Task.isCancelled else { return }
+
             let request = MKDirections.Request()
-            request.source = MKMapItem(placemark: MKPlacemark(coordinate: sourcePin.coordinate))
-            request.destination = MKMapItem(placemark: MKPlacemark(coordinate: destinationPin.coordinate))
+            request.source      = MKMapItem(placemark: MKPlacemark(coordinate: pins[i].coordinate))
+            request.destination = MKMapItem(placemark: MKPlacemark(coordinate: pins[i + 1].coordinate))
             request.transportType = .automobile
+
             let directions = MKDirections(request: request)
             directionsTasks.append(directions)
-            
-            directions.calculate { response, error in
-                defer { dispatchGroup.leave() }
-                if let route = response?.routes.first {
-                    if i < calculatedSegments.count { calculatedSegments[i] = route.polyline }
-                } else { print("Error or no route for segment \(i): \(error?.localizedDescription ?? "Unknown")") }
+
+            do {
+                let response = try await directions.calculate()
+                if let polyline = response.routes.first?.polyline {
+                    segments.append(polyline)
+                }
+            } catch {
+                print("Error or no route for segment \(i): \(error.localizedDescription)")
+                // Append a straight-line fallback so the route still draws
+                let coords = [pins[i].coordinate, pins[i + 1].coordinate]
+                segments.append(MKPolyline(coordinates: coords, count: 2))
+            }
+
+            // Small pause between requests to avoid rate-limiting
+            if i < pins.count - 2 {
+                try? await Task.sleep(for: .milliseconds(300))
             }
         }
-        
-        dispatchGroup.notify(queue: .main) { [weak self] in
-            guard let self = self else { return }
-            let validSegments = calculatedSegments.compactMap { $0 }
-            self.routeSegments = validSegments
-            print("Route segments updated: \(validSegments.count)")
-        }
+
+        guard !Task.isCancelled else { return }
+        routeSegments = segments
+        print("Route segments updated: \(segments.count)")
     }
     
     func getCheckpointNumber(for locationPin: LocationPin) -> Int? {
@@ -305,11 +330,3 @@ class RouteCreationViewModel: ObservableObject {
     }
 }
 
-// MARK: - MKPolyline Extension
-extension MKMultiPoint {
-    var coordinates: [CLLocationCoordinate2D] {
-        var coords = [CLLocationCoordinate2D](repeating: kCLLocationCoordinate2DInvalid, count: pointCount)
-        getCoordinates(&coords, range: NSRange(location: 0, length: pointCount))
-        return coords
-    }
-}

@@ -15,6 +15,8 @@ struct RaceLiveMapViewBridge: UIViewRepresentable {
     let routeToDisplay: SavedRoute?
     let nextTargetCoordinate: CLLocationCoordinate2D?
     let currentRaceState: RaceState
+    /// Road-snapped polylines from MKDirections. Falls back to straight-line when empty.
+    var roadPolylines: [MKPolyline] = []
     
     func makeUIView(context: Context) -> MKMapView {
         
@@ -43,8 +45,12 @@ struct RaceLiveMapViewBridge: UIViewRepresentable {
         
         guard let route = routeToDisplay else { return }
         
-        // Add route polyline for the entire route
-        if route.clCoordinates.count > 1 {
+        // Add route polyline — use road-snapped segments when available, straight-line fallback otherwise
+        if !roadPolylines.isEmpty {
+            for polyline in roadPolylines {
+                uiView.addOverlay(polyline, level: .aboveRoads)
+            }
+        } else if route.clCoordinates.count > 1 {
             let polyline = MKPolyline(coordinates: route.clCoordinates, count: route.clCoordinates.count)
             uiView.addOverlay(polyline, level: .aboveRoads)
         }
@@ -100,9 +106,8 @@ struct RaceLiveMapViewBridge: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             if let polyline = overlay as? MKPolyline {
                 let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor.systemGray.withAlphaComponent(0.7)
-                renderer.lineWidth = 4
-                renderer.lineDashPattern = [2, 6]
+                renderer.strokeColor = UIColor.systemBlue.withAlphaComponent(0.85)
+                renderer.lineWidth = 5
                 return renderer
             }
             return MKOverlayRenderer(overlay: overlay)
