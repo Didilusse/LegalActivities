@@ -1,6 +1,6 @@
 //
 //  RaceFinishedView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Post-race summary sheet. Shows headline stats and a button to open
 //  the full RaceResultDetailView with leaderboards and splits.

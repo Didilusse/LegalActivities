@@ -1,6 +1,6 @@
 //
 //  RouteOverviewMap.swift
-//  LegalActivities
+//  Downshift
 //
 //  A static, non-interactive map snapshot showing a saved route's path
 //  with start/end pins. Used for route previews.

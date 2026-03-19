@@ -1,6 +1,6 @@
 //
 //  RoutePreviewSheet.swift
-//  LegalActivities
+//  Downshift
 //
 //  Pre-race overview sheet: map, route stats, and race button.
 //  Presented when the user taps a route in StartRacingView.

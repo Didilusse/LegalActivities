@@ -1,6 +1,6 @@
 //
 //  RaceInProgressView.swift
-//  LegalActivities
+//  Downshift
 //
 
 import SwiftUI

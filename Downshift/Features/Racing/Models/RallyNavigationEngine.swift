@@ -1,6 +1,6 @@
 //
 //  RallyNavigationEngine.swift
-//  LegalActivities
+//  Downshift
 //
 //  Converts raw GPS route coordinates into rally pace-note instructions using the
 //  full cubic-spline + 3-D curvature pipeline described in RALLY_NAVIGATION_TECHNICAL_DOCUMENT.md.

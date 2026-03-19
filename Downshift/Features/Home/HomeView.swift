@@ -1,6 +1,6 @@
 //
 //  HomeView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Home screen styled after a modern route-discovery layout:
 //  hero banner → search → action chips → friend activity → your routes.

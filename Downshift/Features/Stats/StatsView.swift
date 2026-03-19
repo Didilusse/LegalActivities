@@ -1,6 +1,6 @@
 //
 //  StatsView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Shows all created routes and all raced routes with navigation into per-route stats.
 //

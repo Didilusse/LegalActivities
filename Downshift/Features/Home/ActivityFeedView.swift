@@ -1,7 +1,7 @@
 
 //
 //  ActivityFeedView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Full chronological activity feed.
 //

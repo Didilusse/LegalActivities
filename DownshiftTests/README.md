@@ -31,6 +31,8 @@ To run these tests, you need to add a test target to your Xcode project:
      - `FormatHelpersTests.swift`
      - `SavedRouteTests.swift`
      - `UnitPreferenceTests.swift`
+     - `UserProfileTests.swift`
+     - `RaceResultTests.swift`
    - Make sure **only** the `DownshiftTests` target is checked
    - Click **Add**
 
@@ -47,25 +49,45 @@ To run these tests, you need to add a test target to your Xcode project:
 
 ## Test Files
 
-### FormatHelpersTests.swift
+### FormatHelpersTests.swift (15 tests)
 Tests for time formatting functions:
 - `formatDuration()` - Full duration formatting (HH:MM:SS)
 - `formatShortDuration()` - Short duration formatting (MM:SS or HH:MM:SS)
+- Edge cases: zero seconds, hours, minutes
 
-### SavedRouteTests.swift
+### SavedRouteTests.swift (18 tests)
 Tests for the SavedRoute model:
-- Distance calculations
-- Estimated duration
+- Distance calculations (empty, single, multiple coordinates)
+- Estimated duration computation
 - Coordinate helpers (start/end)
 - Reversed route copies
 - Equality comparisons
+- Metadata preservation
 
-### UnitPreferenceTests.swift
+### UnitPreferenceTests.swift (16 tests)
 Tests for metric/imperial unit conversions:
 - Distance formatting (km vs mi)
 - Speed formatting (km/h vs mph)
 - Unit properties
 - Codable conformance
+- Zero values and edge cases
+
+### UserProfileTests.swift (59 tests)
+Tests for user profile and car models:
+- **UserProfile**: Default/custom initialization, primary car selection, Codable
+- **Car**: Initialization, display name, equality, Codable
+- **Difficulty**: All cases, raw values, colors, Codable
+- **CarMake**: Popular brands, all cases count
+- **CarColor**: Common colors, all cases count
+
+### RaceResultTests.swift (20 tests)
+Tests for race result model:
+- Basic initialization and custom dates
+- Multiple laps and edge cases
+- Unique ID generation
+- Hashable conformance
+- Codable and JSON encoding
+- Performance metrics (fastest/slowest lap, average lap time)
 
 ## Running Tests from Command Line
 

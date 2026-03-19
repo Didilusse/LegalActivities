@@ -1,7 +1,7 @@
 
 //
 //  FormatHelpers.swift
-//  LegalActivities
+//  Downshift
 //
 //  Shared formatting utilities.
 //

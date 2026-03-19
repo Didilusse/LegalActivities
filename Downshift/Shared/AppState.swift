@@ -1,7 +1,7 @@
 
 //
 //  AppState.swift
-//  LegalActivities
+//  Downshift
 //
 //  Centralized app-wide state for user profile, routes, friends, and feed.
 //

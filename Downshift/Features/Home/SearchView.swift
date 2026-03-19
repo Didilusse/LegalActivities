@@ -1,6 +1,6 @@
 //
 //  SearchView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Global search across routes, friends, and activity feed items.
 //

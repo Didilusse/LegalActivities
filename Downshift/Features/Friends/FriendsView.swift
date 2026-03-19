@@ -1,6 +1,6 @@
 //
 //  FriendsView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Social tab: friends list + recent races feed, with Add Friend support.
 //

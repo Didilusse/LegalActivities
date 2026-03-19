@@ -1,6 +1,6 @@
 //
 //  StartRacingView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Full-screen route selection pushed from HomeView's NavigationStack.
 //  Tapping a route opens RoutePreviewSheet; the sheet's Race button pushes RaceInProgressView.

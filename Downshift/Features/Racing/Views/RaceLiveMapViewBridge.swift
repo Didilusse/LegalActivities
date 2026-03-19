@@ -1,6 +1,6 @@
 //
 //  RaceLiveMapViewBridge.swift
-//  LegalActivities
+//  Downshift
 //
 
 import SwiftUI

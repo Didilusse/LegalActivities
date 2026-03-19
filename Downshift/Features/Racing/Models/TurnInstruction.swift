@@ -1,6 +1,6 @@
 //
 //  TurnInstruction.swift
-//  LegalActivities
+//  Downshift
 //
 //  Converts a route polyline into rally pace-note instructions.
 //

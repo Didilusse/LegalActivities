@@ -1,6 +1,6 @@
 //
 //  RaceResultDetailView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Detailed stats for a single race result: performance metrics, split segments,
 //  comparison to personal best, worldwide leaderboard, and friends ranking.

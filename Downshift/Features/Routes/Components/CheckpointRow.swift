@@ -1,6 +1,6 @@
 //
 //  CheckpointRow.swift
-//  LegalActivities
+//  Downshift
 //
 //  Created by Adil Rahmani on 5/13/25.
 //

@@ -1,6 +1,6 @@
 //
 //  RouteStatsView.swift
-//  LegalActivities
+//  Downshift
 //
 //  Per-route stats screen showing all racers (user + friends) and their times.
 //

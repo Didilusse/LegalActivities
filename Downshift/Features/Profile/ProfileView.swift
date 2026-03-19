@@ -1,7 +1,7 @@
 
 //
 //  ProfileView.swift
-//  LegalActivities
+//  Downshift
 //
 //  User profile, stats summary, garage, and settings.
 //
