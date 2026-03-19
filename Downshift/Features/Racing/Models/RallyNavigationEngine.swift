@@ -579,7 +579,7 @@ final class Spline {
         let n  = x.count
         let n1 = n - 1
 
-        var a = y
+        let a = y
         var b = [Double](repeating: 0, count: n1)
         var c = [Double](repeating: 0, count: n)
         var d = [Double](repeating: 0, count: n1)
