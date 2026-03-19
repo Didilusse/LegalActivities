@@ -136,19 +136,27 @@ final class CarTests: XCTestCase {
         XCTAssertEqual(car.displayName, "2024 Tesla Model 3")
     }
     
-    func testCar_Equatable() {
+    func testCar_Equatable_SameData() {
         let id = UUID()
-        let car1 = Car(id: id, make: "Audi", model: "RS3")
-        let car2 = Car(id: id, make: "BMW", model: "M2") // Same ID, different data
+        let car1 = Car(id: id, make: "Audi", model: "RS3", year: 2024, color: "Blue", isPrimary: false)
+        let car2 = Car(id: id, make: "Audi", model: "RS3", year: 2024, color: "Blue", isPrimary: false)
         
-        XCTAssertEqual(car1, car2) // Should be equal because same ID
+        XCTAssertEqual(car1, car2) // Should be equal because all fields match
     }
     
-    func testCar_NotEquatable() {
-        let car1 = Car(make: "Mercedes", model: "AMG GT")
-        let car2 = Car(make: "Mercedes", model: "AMG GT")
+    func testCar_NotEquatable_DifferentID() {
+        let car1 = Car(make: "Mercedes", model: "AMG GT", year: 2024)
+        let car2 = Car(make: "Mercedes", model: "AMG GT", year: 2024)
         
         XCTAssertNotEqual(car1, car2) // Different IDs
+    }
+    
+    func testCar_NotEquatable_DifferentData() {
+        let id = UUID()
+        let car1 = Car(id: id, make: "Audi", model: "RS3")
+        let car2 = Car(id: id, make: "BMW", model: "M2") // Same ID, different make/model
+        
+        XCTAssertNotEqual(car1, car2) // Different data fields
     }
     
     func testCar_Codable() throws {
